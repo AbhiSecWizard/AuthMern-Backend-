@@ -1,5 +1,8 @@
 const mongoose = require("mongoose")
 
+
+// scheema all about 
+
 const userSchema = new mongoose.Schema({
 name: {type: String, required: true},
 email: {type: String, required: true, unique: true},
