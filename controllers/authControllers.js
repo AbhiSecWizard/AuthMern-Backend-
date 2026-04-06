@@ -258,7 +258,7 @@ try {
   }
 }
 
-async function sendResetOtp(req,res){
+async function sendResetOtp123(req,res){
   const {email} = req.body
   if(!email){
     return res.json({
@@ -343,7 +343,7 @@ async function resetPassword(req,res) {
 
 
 
-async function sendResetOtp1(req, res) {
+async function sendResetOtp(req, res) {
   const { email } = req.body;
 
   if (!email) {
@@ -376,8 +376,14 @@ async function sendResetOtp1(req, res) {
       text: `Your OTP is ${otp}`,
     };
 
-    await transporter.sendMail(mailOptions);
-
+    // await transporter.sendMail(mailOptions);
+    
+    try {
+  const info = await transporter.sendMail(mailOptions);
+  console.log("MAIL SENT:", info.response);
+} catch (err) {
+  console.error("MAIL ERROR:", err);
+}
     return res.json({
       success: true,
       message: "OTP sent to your email",
