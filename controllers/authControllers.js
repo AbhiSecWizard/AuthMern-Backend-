@@ -2,6 +2,7 @@ const userModel = require("../model/usermodel");
 const bcrypt = require("bcryptjs")
 const jwt = require("jsonwebtoken");
 const  transporter  = require("../config/nodemailer");
+const sendMail = require("../config/brevoMail");
 
 async function registerUser(req, res) {
   const { name, email, password } = req.body;
@@ -258,7 +259,7 @@ try {
   }
 }
 
-async function sendResetOtp123(req,res){
+async function sendResetOtpbc(req,res){
   const {email} = req.body
   if(!email){
     return res.json({
@@ -377,13 +378,12 @@ async function sendResetOtp(req, res) {
     };
 
     // await transporter.sendMail(mailOptions);
-    
-    try {
-  const info = await transporter.sendMail(mailOptions);
-  console.log("MAIL SENT:", info.response);
-} catch (err) {
-  console.error("MAIL ERROR:", err);
-}
+    await sendMail(
+  user.email,
+  "Password Reset OTP",
+  `Your OTP is ${otp}`
+);
+
     return res.json({
       success: true,
       message: "OTP sent to your email",
@@ -397,5 +397,4 @@ async function sendResetOtp(req, res) {
     });
   }
 }
-
 module.exports = {resetPassword,sendResetOtp,registerUser,isAuthenticated,login,logout,verifyEmail,sendVerificationOtp}

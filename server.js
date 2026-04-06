@@ -5,6 +5,7 @@ const authRouter = require("./routes/authRouter")
 const cookieParser = require("cookie-parser")
 const connectDB = require("./config/mongodb")
 const userRouter = require("./routes/userRouter")
+const sendMail = require("./config/brevoMail")
 
 // const path = require("path")
 
@@ -31,6 +32,20 @@ app.use(cors({
 // API end Points       
 app.use("/api/auth",authRouter)
 app.use("/api/user",userRouter)
+
+
+app.get("/mail-test", async (req, res) => {
+  try {
+    await sendMail(
+      "studyandrotech@gmail.com",
+      "Test",
+      "Brevo API working"
+    );
+    res.send("Mail sent");
+  } catch (e) {
+    res.send(e.message);
+  }
+});
 
 app.get("/",(req,res)=>{
     res.send("API WORKING")
