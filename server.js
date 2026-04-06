@@ -18,6 +18,11 @@ const allowedOrigins = [
   "https://authmern-backend-f8mb.onrender.com"
 ];
 
+app.use((req, res, next) => {
+  console.log("Incoming:", req.method, req.url);
+  next();
+});
+
 app.use(cors({
   origin: allowedOrigins,
   credentials: true,
