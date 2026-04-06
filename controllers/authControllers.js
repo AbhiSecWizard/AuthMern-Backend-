@@ -338,4 +338,58 @@ async function resetPassword(req,res) {
     })
   }
 }
+
+
+
+
+
+async function sendResetOtp1(req, res) {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.json({
+      success: false,
+      message: "Email is required",
+    });
+  }
+
+  try {
+    const user = await userModel.findOne({ email });
+    if (!user) {
+      return res.json({
+        success: false,
+        message: "User Not Found",
+      });
+    }
+
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+
+    user.resetOtp = otp;
+    user.resetOtpExpireAt = Date.now() + 14 * 60 * 1000;
+
+    await user.save();
+
+    const mailOptions = {
+      from: process.env.SENDER_EMAIL,
+      to: user.email,
+      subject: "Password Reset OTP",
+      text: `Your OTP is ${otp}`,
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    return res.json({
+      success: true,
+      message: "OTP sent to your email",
+    });
+
+  } catch (error) {
+    console.error("sendResetOtp error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
 module.exports = {resetPassword,sendResetOtp,registerUser,isAuthenticated,login,logout,verifyEmail,sendVerificationOtp}
