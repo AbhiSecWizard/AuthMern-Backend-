@@ -11,15 +11,17 @@ const userRouter = require("./routes/userRouter")
 const app = express()
 
 const port = process.env.PORT || 5000
-const allowedOrigins =["https://authmern-backend-f8mb.onrender.com"]
 app.use(express.json())
 app.use(cookieParser())
-app.use(
-  cors({
-    origin: true,        // reflect request origin
-    credentials: true,   // allow cookies/auth headers
-  })
-);
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://authmern-backend-f8mb.onrender.com"
+];
+
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true,
+}));
               connectDB()
 // API end Points       
 app.use("/api/auth",authRouter)
