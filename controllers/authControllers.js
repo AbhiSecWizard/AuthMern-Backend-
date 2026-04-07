@@ -1,17 +1,7 @@
 const userModel = require("../model/usermodel");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const sendMail = require("../config/brevoMail");
-
-// Ensure JWT_SECRET exists
-if (!process.env.JWT_SECRET) {
-    throw new Error("JWT_SECRET is missing in environment variables");
-}
-
-// Helper function to generate JWT
-const generateToken = (userId) => {
-    return jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: "7d" });
-};
+const sendMail = require("../config/brevoMail"); // Brevo Helper का उपयोग
 
 // 1. REGISTER USER
 async function registerUser(req, res) {
@@ -32,9 +22,13 @@ async function registerUser(req, res) {
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
-        const user = await userModel.create({ name, email, password: hashedPassword });
+        const user = await userModel.create({
+            name,
+            email,
+            password: hashedPassword
+        });
 
-        const token = generateToken(user._id);
+        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
 
         res.cookie("token", token, {
             httpOnly: true,
@@ -43,7 +37,7 @@ async function registerUser(req, res) {
             maxAge: 7 * 24 * 60 * 60 * 1000
         });
 
-        // Send welcome email
+        // Brevo Email Integration
         await sendMail(
             email,
             "Welcome to GreatStack",
@@ -71,16 +65,12 @@ async function login(req, res) {
             return res.status(404).json({ success: false, message: "Invalid email" });
         }
 
-        if (!user.isAccountVerified) {
-            return res.status(403).json({ success: false, message: "Please verify your email first" });
-        }
-
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
             return res.status(401).json({ success: false, message: "Invalid password" });
         }
 
-        const token = generateToken(user._id);
+        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
 
         res.cookie("token", token, {
             httpOnly: true,
@@ -90,7 +80,6 @@ async function login(req, res) {
         });
 
         return res.status(200).json({ success: true, message: "Logged in successfully" });
-
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
     }
@@ -101,40 +90,41 @@ async function logout(req, res) {
     try {
         res.clearCookie("token", {
             httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: process.env.NODE_ENV === "production" ? "none" : "strict"
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict'
         });
 
-        return res.status(200).json({ success: true, message: "Logged out successfully" });
+        return res.status(200).json({ success: true, message: "Logged Out Successfully" });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
     }
 }
 
-// 4. SEND VERIFICATION OTP
+// 4. SEND VERIFICATION OTP (Account Verification)
 async function sendVerificationOtp(req, res) {
     try {
-        const userId = req.userId;
+        const userId = req.userId; 
         const user = await userModel.findById(userId);
 
-        if (!user) return res.status(404).json({ success: false, message: "User not found" });
-        if (user.isAccountVerified) return res.status(400).json({ success: false, message: "Account already verified" });
+        if (user.isAccountVerified) {
+            return res.status(400).json({ success: false, message: "Account Already Verified" });
+        }
 
         const otp = String(Math.floor(100000 + Math.random() * 900000));
-        const hashedOtp = await bcrypt.hash(otp, 10);
-
-        user.verifyOtp = hashedOtp;
+        user.verifyOtp = otp;
         user.verifyOtpExpireAt = Date.now() + 24 * 60 * 60 * 1000;
 
         await user.save();
 
+        // Brevo Email Integration
         await sendMail(
             user.email,
             "Account Verification OTP",
             `Your OTP is ${otp}. Please verify your account.`
         );
 
-        return res.status(200).json({ success: true, message: "Verification OTP sent to email" });
+        return res.status(200).json({ success: true, message: "Verification OTP Sent to Email" });
+
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
     }
@@ -145,18 +135,22 @@ async function verifyEmail(req, res) {
     const { otp } = req.body;
     const userId = req.userId;
 
-    if (!otp) return res.status(400).json({ success: false, message: "OTP is required" });
+    if (!otp) {
+        return res.status(400).json({ success: false, message: "OTP Required" });
+    }
 
     try {
         const user = await userModel.findById(userId);
-        if (!user) return res.status(404).json({ success: false, message: "User not found" });
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
 
-        if (!user.verifyOtp || !(await bcrypt.compare(otp, user.verifyOtp))) {
+        if (!user.verifyOtp || user.verifyOtp !== otp) {
             return res.status(400).json({ success: false, message: "Invalid OTP" });
         }
 
         if (user.verifyOtpExpireAt < Date.now()) {
-            return res.status(400).json({ success: false, message: "OTP expired" });
+            return res.status(400).json({ success: false, message: "OTP Expired" });
         }
 
         user.isAccountVerified = true;
@@ -165,7 +159,7 @@ async function verifyEmail(req, res) {
 
         await user.save();
 
-        return res.status(200).json({ success: true, message: "Email verified successfully" });
+        return res.status(200).json({ success: true, message: "Email Verified Successfully" });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
     }
@@ -174,20 +168,23 @@ async function verifyEmail(req, res) {
 // 6. SEND PASSWORD RESET OTP
 async function sendResetOtp(req, res) {
     const { email } = req.body;
-    if (!email) return res.status(400).json({ success: false, message: "Email is required" });
+    if (!email) {
+        return res.status(400).json({ success: false, message: "Email is required" });
+    }
 
     try {
         const user = await userModel.findOne({ email });
-        if (!user) return res.status(404).json({ success: false, message: "User not found" });
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User Not Found" });
+        }
 
         const otp = String(Math.floor(100000 + Math.random() * 900000));
-        const hashedOtp = await bcrypt.hash(otp, 10);
-
-        user.resetOtp = hashedOtp;
-        user.resetOtpExpireAt = Date.now() + 15 * 60 * 1000;
+        user.resetOtp = otp;
+        user.resetOtpExpireAt = Date.now() + 15 * 60 * 1000; // 15 Minutes
 
         await user.save();
 
+        // Brevo Email Integration
         await sendMail(
             user.email,
             "Password Reset OTP",
@@ -208,29 +205,28 @@ async function resetPassword(req, res) {
         return res.status(400).json({ success: false, message: "Email, OTP, and new password are required" });
     }
 
-    if (newPassword.length < 6) {
-        return res.status(400).json({ success: false, message: "Password must be at least 6 characters" });
-    }
-
     try {
         const user = await userModel.findOne({ email });
-        if (!user) return res.status(404).json({ success: false, message: "User not found" });
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
 
-        if (!user.resetOtp || !(await bcrypt.compare(otp, user.resetOtp))) {
+        if (!user.resetOtp || user.resetOtp !== otp) {
             return res.status(400).json({ success: false, message: "Invalid OTP" });
         }
 
         if (user.resetOtpExpireAt < Date.now()) {
-            return res.status(400).json({ success: false, message: "OTP expired" });
+            return res.status(400).json({ success: false, message: "OTP Expired" });
         }
 
-        user.password = await bcrypt.hash(newPassword, 10);
-        user.resetOtp = "";
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        user.password = hashedPassword;
+        user.resetOtp = '';
         user.resetOtpExpireAt = 0;
 
         await user.save();
 
-        return res.status(200).json({ success: true, message: "Password has been reset successfully" });
+        return res.status(200).json({ success: true, message: 'Password has been reset successfully' });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
     }
@@ -245,7 +241,7 @@ async function isAuthenticated(req, res) {
     }
 }
 
-// ✅ Proper Export
+// Exporting all functions
 module.exports = {
     registerUser,
     login,
@@ -256,3 +252,4 @@ module.exports = {
     sendResetOtp,
     resetPassword
 };
+// module.exports = {resetPassword,sendResetOtp,registerUser,isAuthenticated,login,logout,verifyEmail,sendVerificationOtp}
