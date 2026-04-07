@@ -1,10 +1,18 @@
 const userModel = require("../model/usermodel");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const sendMail = require("../config/brevoMail"); // Brevo Helper का उपयोग
+const sendMail = require("../config/brevoMail");
+
+// --- HELPER: Generate Cookie Options ---
+const cookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 Days
+};
 
 // 1. REGISTER USER
-async function registerUser(req, res) {
+const registerUser = async (req, res) => {
     const { name, email, password } = req.body;
 
     if (!name || !email || !password) {
@@ -30,12 +38,7 @@ async function registerUser(req, res) {
 
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
 
-        res.cookie("token", token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
-            maxAge: 7 * 24 * 60 * 60 * 1000
-        });
+        res.cookie("token", token, cookieOptions);
 
         // Brevo Email Integration
         await sendMail(
@@ -49,10 +52,10 @@ async function registerUser(req, res) {
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
     }
-}
+};
 
 // 2. LOGIN USER
-async function login(req, res) {
+const login = async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
@@ -72,38 +75,28 @@ async function login(req, res) {
 
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
 
-        res.cookie("token", token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
-            maxAge: 7 * 24 * 60 * 60 * 1000
-        });
+        res.cookie("token", token, cookieOptions);
 
         return res.status(200).json({ success: true, message: "Logged in successfully" });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
     }
-}
+};
 
 // 3. LOGOUT USER
-async function logout(req, res) {
+const logout = async (req, res) => {
     try {
-        res.clearCookie("token", {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict'
-        });
-
+        res.clearCookie("token", cookieOptions);
         return res.status(200).json({ success: true, message: "Logged Out Successfully" });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
     }
-}
+};
 
-// 4. SEND VERIFICATION OTP (Account Verification)
-async function sendVerificationOtp(req, res) {
+// 4. SEND VERIFICATION OTP
+const sendVerificationOtp = async (req, res) => {
     try {
-        const userId = req.userId; 
+        const userId = req.userId;
         const user = await userModel.findById(userId);
 
         if (user.isAccountVerified) {
@@ -112,11 +105,10 @@ async function sendVerificationOtp(req, res) {
 
         const otp = String(Math.floor(100000 + Math.random() * 900000));
         user.verifyOtp = otp;
-        user.verifyOtpExpireAt = Date.now() + 24 * 60 * 60 * 1000;
+        user.verifyOtpExpireAt = Date.now() + 24 * 60 * 60 * 1000; // 24 Hours
 
         await user.save();
 
-        // Brevo Email Integration
         await sendMail(
             user.email,
             "Account Verification OTP",
@@ -128,10 +120,10 @@ async function sendVerificationOtp(req, res) {
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
     }
-}
+};
 
 // 5. VERIFY EMAIL
-async function verifyEmail(req, res) {
+const verifyEmail = async (req, res) => {
     const { otp } = req.body;
     const userId = req.userId;
 
@@ -163,10 +155,10 @@ async function verifyEmail(req, res) {
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
     }
-}
+};
 
 // 6. SEND PASSWORD RESET OTP
-async function sendResetOtp(req, res) {
+const sendResetOtp = async (req, res) => {
     const { email } = req.body;
     if (!email) {
         return res.status(400).json({ success: false, message: "Email is required" });
@@ -184,7 +176,6 @@ async function sendResetOtp(req, res) {
 
         await user.save();
 
-        // Brevo Email Integration
         await sendMail(
             user.email,
             "Password Reset OTP",
@@ -195,10 +186,10 @@ async function sendResetOtp(req, res) {
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
     }
-}
+};
 
 // 7. RESET PASSWORD
-async function resetPassword(req, res) {
+const resetPassword = async (req, res) => {
     const { email, otp, newPassword } = req.body;
 
     if (!email || !otp || !newPassword) {
@@ -230,16 +221,16 @@ async function resetPassword(req, res) {
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
     }
-}
+};
 
 // 8. CHECK AUTH STATUS
-async function isAuthenticated(req, res) {
+const isAuthenticated = async (req, res) => {
     try {
         return res.status(200).json({ success: true });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
     }
-}
+};
 
 // Exporting all functions
 module.exports = {
@@ -252,4 +243,3 @@ module.exports = {
     sendResetOtp,
     resetPassword
 };
-// module.exports = {resetPassword,sendResetOtp,registerUser,isAuthenticated,login,logout,verifyEmail,sendVerificationOtp}
