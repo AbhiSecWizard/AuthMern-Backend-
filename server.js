@@ -15,7 +15,8 @@ const port = process.env.PORT || 5000
 app.use(express.json())
 app.use(cookieParser())
 const allowedOrigins = [
-  "http://localhost:5173"
+  "http://localhost:5173",
+  "https://auth-mern-frontend-wnmb.vercel.app"
 ];
 
 app.use((req, res, next) => {
