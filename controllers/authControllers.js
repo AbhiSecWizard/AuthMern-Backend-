@@ -6,25 +6,27 @@ const sendMail = require("../config/brevoMail");
 // --- HELPER: Generate Cookie Options ---
 const cookieOptions = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+    // Production mein 'secure' true hona chahiye aur sameSite 'none'
+    // kyunki backend aur frontend ke domains alag honge.
+    secure: true, 
+    sameSite: 'none', 
     maxAge: 7 * 24 * 60 * 60 * 1000 // 7 Days
 };
 
 // 1. REGISTER USER
 const registerUser = async (req, res) => {
     const { name, email, password } = req.body;
-
+    
     if (!name || !email || !password) {
         return res.status(400).json({ success: false, message: "All fields are required" });
     }
-
+    
     try {
         const existingUser = await userModel.findOne({ email });
         if (existingUser) {
             return res.status(409).json({ success: false, message: "User already exists" });
         }
-
+    
         if (password.length < 6) {
             return res.status(400).json({ success: false, message: "Password must be at least 6 characters" });
         }

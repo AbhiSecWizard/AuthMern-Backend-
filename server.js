@@ -15,15 +15,14 @@ const port = process.env.PORT || 5000
 app.use(express.json())
 app.use(cookieParser())
 const allowedOrigins = [
-  "http://localhost:5173",
-  "https://authmern-backend-f8mb.onrender.com"
+  "http://localhost:5173"
 ];
 
 app.use((req, res, next) => {
   console.log("Incoming:", req.method, req.url);
   next();
 });
-
+app.set('trust proxy', 1);
 app.use(cors({
   origin: allowedOrigins,
   credentials: true,

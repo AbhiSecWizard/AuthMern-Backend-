@@ -1,11 +1,11 @@
 const userModel = require("../model/usermodel.js")
-
+       
 async function getUserData(req,res) {
   try {
     const userId = req.userId  // ✅ middleware se
-
+       
     const user = await userModel.findById(userId)
-
+       
     if(!user){
       return res.json({
         success:false,
