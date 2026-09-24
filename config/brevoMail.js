@@ -17,11 +17,11 @@ const sendMail = async (to, subject, text) => {
         },
       }
     );
-
+   
     console.log("MAIL SENT:", res.data);
   } catch (err) {
     console.error("BREVO MAIL ERROR:", err.response?.data || err.message);
   }
 };
 
-module.exports = sendMail;
+module.exports = sendMail; 
